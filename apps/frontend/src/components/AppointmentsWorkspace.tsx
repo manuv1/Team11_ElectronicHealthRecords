@@ -1,7 +1,14 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import { appointmentService } from "../services/appointment-service";
+import { patientService } from "../services/patient-service";
+import { AuditLogsWorkspace } from "./AuditLogsWorkspace";
+import { DashboardWorkspace } from "./DashboardWorkspace";
+import { FhirWorkspace } from "./FhirWorkspace";
+import { LabResultsWorkspace } from "./LabResultsWorkspace";
+import { MedicationsWorkspace } from "./MedicationsWorkspace";
 import { PatientsWorkspace } from "./PatientsWorkspace";
+import { ReportsWorkspace } from "./ReportsWorkspace";
 import { userAdminService } from "../services/user-admin-service";
 import {
   Appointment,
@@ -12,16 +19,18 @@ import {
   appointmentTypes,
 } from "../types/appointment";
 import { AuthSession, AuthUser, UserRole, userRoles } from "../types/auth";
+import { Patient } from "../types/patient";
 
 interface AppointmentsWorkspaceProps {
   session: AuthSession;
   onLogout: () => void;
 }
 
-const patientOptions = [
-  { id: "pat_001", name: "Ava Sharma", mrn: "MRN-20260420-0001" },
-  { id: "pat_002", name: "Noah Patel", mrn: "MRN-20260420-0002" },
-];
+interface PatientOption {
+  id: string;
+  name: string;
+  mrn: string;
+}
 
 const providerOptions = [
   { id: "prov_001", name: "Dr. Meera Rao" },
@@ -52,15 +61,22 @@ type NavigationIconName =
   | "reports"
   | "fhir"
   | "audit"
-  | "users"
-  | "settings";
+  | "users";
 
-type ActiveModule = "appointments" | "patients" | "users";
+type ActiveModule =
+  | "dashboard"
+  | "appointments"
+  | "patients"
+  | "labs"
+  | "medications"
+  | "reports"
+  | "fhir"
+  | "audit"
+  | "users";
 
 interface NavigationItem {
   id: string;
   label: string;
-  status: "Active" | "Next";
   icon: NavigationIconName;
   roles?: UserRole[];
 }
@@ -74,31 +90,34 @@ const navigationSections: NavigationSection[] = [
   {
     title: "Care Operations",
     items: [
-      { id: "dashboard", label: "Dashboard", status: "Next", icon: "dashboard" },
-      { id: "patients", label: "Patients", status: "Next", icon: "patients" },
-      { id: "appointments", label: "Appointments", status: "Active", icon: "appointments" },
+      { id: "dashboard", label: "Dashboard", icon: "dashboard" },
+      { id: "patients", label: "Patients", icon: "patients" },
+      { id: "appointments", label: "Appointments", icon: "appointments" },
     ],
   },
   {
     title: "Clinical Workflows",
     items: [
-      { id: "labs", label: "Lab Results", status: "Next", icon: "labs" },
-      { id: "medications", label: "Medications", status: "Next", icon: "medications" },
+      { id: "labs", label: "Lab Results", icon: "labs", roles: ["ADMIN", "DOCTOR", "NURSE"] },
+      { id: "medications", label: "Medications", icon: "medications", roles: ["ADMIN", "DOCTOR", "NURSE"] },
     ],
   },
   {
     title: "Compliance",
     items: [
-      { id: "reports", label: "Reports", status: "Next", icon: "reports" },
-      { id: "fhir", label: "FHIR Export", status: "Next", icon: "fhir" },
-      { id: "audit", label: "Audit Logs", status: "Next", icon: "audit", roles: ["ADMIN"] },
-      { id: "users", label: "User Admin", status: "Next", icon: "users", roles: ["ADMIN"] },
-      { id: "settings", label: "Settings", status: "Next", icon: "settings" },
+      { id: "reports", label: "Reports", icon: "reports" },
+      { id: "fhir", label: "FHIR Export", icon: "fhir" },
+      { id: "audit", label: "Audit Logs", icon: "audit", roles: ["ADMIN"] },
+      { id: "users", label: "User Admin", icon: "users", roles: ["ADMIN"] },
     ],
   },
 ];
 
 const moduleHeaders: Record<ActiveModule, { title: string; description: string }> = {
+  dashboard: {
+    title: "Dashboard",
+    description: "Key statistics, recent patients, today's appointments, and quick actions.",
+  },
   appointments: {
     title: "Appointments",
     description: "Scheduling, conflict checks, status updates, and cancellation workflow.",
@@ -106,6 +125,26 @@ const moduleHeaders: Record<ActiveModule, { title: string; description: string }
   patients: {
     title: "Patients",
     description: "Registration, search, profile view, updates, and allergy tracking.",
+  },
+  labs: {
+    title: "Lab Results",
+    description: "Lab ordering, result entry, history review, and abnormal result flagging.",
+  },
+  medications: {
+    title: "Medications",
+    description: "Prescription creation, active medication review, allergy warnings, and discontinuation.",
+  },
+  reports: {
+    title: "Reports",
+    description: "Operational statistics, clinical workload, and safety reporting.",
+  },
+  fhir: {
+    title: "FHIR Export",
+    description: "FHIR R4-compatible patient, observation, and medication export bundles.",
+  },
+  audit: {
+    title: "Audit Logs",
+    description: "Immutable security events for PHI access, account activity, and clinical changes.",
   },
   users: {
     title: "User Admin",
@@ -129,14 +168,14 @@ const nextBusinessDayAt = (hour: number, minute = 0): string => {
   return date.toISOString().slice(0, 16);
 };
 
-const initialBookingForm: AppointmentBookingPayload = {
-  patientId: patientOptions[0].id,
+const createBookingForm = (patientId = ""): AppointmentBookingPayload => ({
+  patientId,
   providerId: providerOptions[0].id,
   dateTime: nextBusinessDayAt(9),
   duration: 30,
   type: "CHECKUP",
   notes: "",
-};
+});
 
 const fieldClassName =
   "mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-100";
@@ -234,13 +273,6 @@ const NavigationIcon = ({ name }: { name: NavigationIconName }): JSX.Element => 
           <path d="M18 21a5 5 0 0 0-3-4" />
         </svg>
       );
-    case "settings":
-      return (
-        <svg aria-hidden="true" {...commonProps}>
-          <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" />
-          <path d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.5-2.4 1a7 7 0 0 0-1.7-1L14.5 3h-5l-.4 3a7 7 0 0 0-1.7 1L5 6 3 9.5 5 11a7 7 0 0 0 0 2l-2 1.5L5 18l2.4-1a7 7 0 0 0 1.7 1l.4 3h5l.4-3a7 7 0 0 0 1.7-1l2.4 1 2-3.5L18.9 13a7 7 0 0 0 .1-1Z" />
-        </svg>
-      );
     default:
       return (
         <svg aria-hidden="true" {...commonProps}>
@@ -289,17 +321,26 @@ const validateBookingForm = (form: AppointmentBookingPayload): string | null => 
   return null;
 };
 
+const toPatientOption = (patient: Patient): PatientOption => ({
+  id: patient.id,
+  name: `${patient.firstName} ${patient.lastName}`.trim(),
+  mrn: patient.mrn,
+});
+
 export const AppointmentsWorkspace = ({
   session,
   onLogout,
 }: AppointmentsWorkspaceProps): JSX.Element => {
-  const [activeModule, setActiveModule] = useState<ActiveModule>("appointments");
+  const [activeModule, setActiveModule] = useState<ActiveModule>("dashboard");
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [patientOptions, setPatientOptions] = useState<PatientOption[]>([]);
   const [filters, setFilters] = useState<AppointmentFilters>(initialFilters);
-  const [bookingForm, setBookingForm] = useState<AppointmentBookingPayload>(initialBookingForm);
+  const [bookingForm, setBookingForm] = useState<AppointmentBookingPayload>(() => createBookingForm());
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingPatients, setIsLoadingPatients] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [patientOptionsError, setPatientOptionsError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [users, setUsers] = useState<AuthUser[]>([]);
   const [selectedRolesByUserId, setSelectedRolesByUserId] = useState<Record<string, UserRole>>({});
@@ -337,6 +378,44 @@ export const AppointmentsWorkspace = ({
     }
   };
 
+  const loadPatientOptions = async (preferredPatientId?: string): Promise<void> => {
+    setIsLoadingPatients(true);
+    setPatientOptionsError(null);
+
+    try {
+      const result = await patientService.list({ search: "", page: 1, limit: 100 }, session);
+      const nextPatientOptions = result.patients.filter((patient) => patient.isActive).map(toPatientOption);
+
+      setPatientOptions(nextPatientOptions);
+      setBookingForm((currentForm) => {
+        const hasSelectedPatient = nextPatientOptions.some((patient) => patient.id === currentForm.patientId);
+        const preferredPatient = preferredPatientId
+          ? nextPatientOptions.find((patient) => patient.id === preferredPatientId)
+          : undefined;
+        const nextPatientId =
+          preferredPatient?.id ??
+          (hasSelectedPatient ? currentForm.patientId : nextPatientOptions[0]?.id ?? "");
+
+        return currentForm.patientId === nextPatientId
+          ? currentForm
+          : { ...currentForm, patientId: nextPatientId };
+      });
+      setFilters((currentFilters) =>
+        currentFilters.patientId && !nextPatientOptions.some((patient) => patient.id === currentFilters.patientId)
+          ? { ...currentFilters, patientId: "" }
+          : currentFilters,
+      );
+    } catch (loadError) {
+      setPatientOptionsError(
+        loadError instanceof Error
+          ? loadError.message
+          : "Could not load patients for scheduling.",
+      );
+    } finally {
+      setIsLoadingPatients(false);
+    }
+  };
+
   const loadUsers = async (): Promise<void> => {
     if (session.user.role !== "ADMIN") {
       return;
@@ -371,6 +450,10 @@ export const AppointmentsWorkspace = ({
   }, []);
 
   useEffect(() => {
+    if (activeModule === "appointments") {
+      void loadPatientOptions();
+    }
+
     if (activeModule === "users") {
       void loadUsers();
     }
@@ -410,7 +493,7 @@ export const AppointmentsWorkspace = ({
         session.accessToken,
       );
       setSuccess("Appointment booked.");
-      setBookingForm(initialBookingForm);
+      setBookingForm(createBookingForm(bookingForm.patientId || patientOptions[0]?.id));
       await loadAppointments(filters);
     } catch (submitError) {
       setError(
@@ -531,7 +614,16 @@ export const AppointmentsWorkspace = ({
                     <div className="mt-2 grid gap-1">
                       {visibleItems.map((item) => {
                         const isActive = item.id === activeModule;
-                        const isEnabled = item.id === "appointments" || item.id === "patients" || item.id === "users";
+                        const isEnabled =
+                          item.id === "dashboard" ||
+                          item.id === "appointments" ||
+                          item.id === "patients" ||
+                          item.id === "labs" ||
+                          item.id === "medications" ||
+                          item.id === "reports" ||
+                          item.id === "fhir" ||
+                          item.id === "audit" ||
+                          item.id === "users";
 
                         return (
                           <button
@@ -559,15 +651,6 @@ export const AppointmentsWorkspace = ({
                               <NavigationIcon name={item.icon} />
                             </span>
                             <span className="min-w-0 flex-1 truncate">{item.label}</span>
-                            <span
-                              className={`rounded-full px-2 py-0.5 text-xs ${
-                                isActive
-                                  ? "bg-cyan-300 text-slate-950"
-                                  : "bg-slate-100 text-slate-500"
-                              }`}
-                            >
-                              {isActive ? "Active" : item.status}
-                            </span>
                           </button>
                         );
                       })}
@@ -605,8 +688,26 @@ export const AppointmentsWorkspace = ({
             </div>
           </header>
 
-          {activeModule === "patients" ? (
-            <PatientsWorkspace session={session} />
+          {activeModule === "dashboard" ? (
+            <DashboardWorkspace
+              onNavigate={(module) => setActiveModule(module)}
+              session={session}
+            />
+          ) : activeModule === "patients" ? (
+            <PatientsWorkspace
+              onPatientsChanged={(patientId) => void loadPatientOptions(patientId)}
+              session={session}
+            />
+          ) : activeModule === "labs" ? (
+            <LabResultsWorkspace session={session} />
+          ) : activeModule === "medications" ? (
+            <MedicationsWorkspace session={session} />
+          ) : activeModule === "reports" ? (
+            <ReportsWorkspace session={session} />
+          ) : activeModule === "fhir" ? (
+            <FhirWorkspace session={session} />
+          ) : activeModule === "audit" ? (
+            <AuditLogsWorkspace session={session} />
           ) : activeModule === "appointments" ? (
           <section className="mx-auto grid max-w-7xl gap-5 px-5 py-6 lg:grid-cols-[1fr_360px]">
         <div className="space-y-5">
@@ -646,7 +747,7 @@ export const AppointmentsWorkspace = ({
                   <option value="">All patients</option>
                   {patientOptions.map((patient) => (
                     <option key={patient.id} value={patient.id}>
-                      {patient.name}
+                      {patient.name || patient.mrn}
                     </option>
                   ))}
                 </select>
@@ -828,20 +929,32 @@ export const AppointmentsWorkspace = ({
         </div>
 
         <aside className="rounded-xl border border-slate-200 bg-white p-4 lg:sticky lg:top-6 lg:self-start">
-          <h2 className="text-base font-semibold text-slate-950">Book Appointment</h2>
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-base font-semibold text-slate-950">Book Appointment</h2>
+            {isLoadingPatients ? <span className="text-xs text-slate-500">Loading patients...</span> : null}
+          </div>
+          {patientOptionsError ? (
+            <p className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+              {patientOptionsError}
+            </p>
+          ) : null}
           <form className="mt-4 space-y-4" onSubmit={handleBookingSubmit}>
             <label className="block text-sm font-medium text-slate-700">
               Patient
               <select
                 className={fieldClassName}
+                disabled={isLoadingPatients || patientOptions.length === 0}
                 onChange={(event) =>
                   setBookingForm((current) => ({ ...current, patientId: event.target.value }))
                 }
                 value={bookingForm.patientId}
               >
+                {patientOptions.length === 0 ? (
+                  <option value="">No active patients available</option>
+                ) : null}
                 {patientOptions.map((patient) => (
                   <option key={patient.id} value={patient.id}>
-                    {patient.name} - {patient.mrn}
+                    {patient.name || patient.mrn} - {patient.mrn}
                   </option>
                 ))}
               </select>
@@ -932,7 +1045,7 @@ export const AppointmentsWorkspace = ({
 
             <button
               className="w-full rounded-xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400 focus:outline-none focus:ring-4 focus:ring-cyan-100"
-              disabled={isSubmitting}
+              disabled={isSubmitting || patientOptions.length === 0}
               type="submit"
             >
               {isSubmitting ? "Booking..." : "Book appointment"}

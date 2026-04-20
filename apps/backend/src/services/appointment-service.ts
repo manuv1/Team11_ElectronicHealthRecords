@@ -1,7 +1,6 @@
 import crypto from "crypto";
 
 import { mockProviders } from "../../../../packages/shared/src/mocks/appointments";
-import { mockPatientSummaries } from "../../../../packages/shared/src/mocks/patients";
 import { UserRole } from "../types/auth";
 import {
   Appointment,
@@ -11,6 +10,7 @@ import {
   UpdateAppointmentRequest,
 } from "../types/appointment";
 import { recordAuditEntry } from "./audit-service";
+import { patientService } from "./patient-service";
 
 export class AppointmentServiceError extends Error {
   constructor(
@@ -76,8 +76,13 @@ const getDateRangeEnd = (dateString: string): number => {
   return parsed.getTime();
 };
 
-const findPatient = (patientId: string) =>
-  mockPatientSummaries.find((patient) => patient.id === patientId);
+const findPatient = async (patientId: string) => {
+  try {
+    return await patientService.getById(patientId);
+  } catch {
+    return undefined;
+  }
+};
 
 const findProvider = (providerId: string) =>
   mockProviders.find((provider) => provider.id === providerId);
@@ -172,6 +177,12 @@ const recordAppointmentAudit = async (
 };
 
 export const appointmentService = {
+  async listAll(): Promise<Appointment[]> {
+    return [...appointments].sort(
+      (left, right) => new Date(left.dateTime).getTime() - new Date(right.dateTime).getTime(),
+    );
+  },
+
   async list(filters: AppointmentListFilters): Promise<{ items: Appointment[]; total: number }> {
     const startDate = filters.startDate ? new Date(filters.startDate).getTime() : undefined;
     const endDate = filters.endDate ? getDateRangeEnd(filters.endDate) : undefined;
@@ -204,7 +215,7 @@ export const appointmentService = {
 
   async create(input: CreateAppointmentRequest, actor: RequestActor = {}): Promise<Appointment> {
     const duration = input.duration ?? 30;
-    const patient = findPatient(input.patientId);
+    const patient = await findPatient(input.patientId);
     const provider = findProvider(input.providerId);
     const errors: string[] = [];
 
@@ -253,7 +264,9 @@ export const appointmentService = {
     const nextStatus = input.status ?? appointment.status;
     assertStatusTransition(appointment.status, nextStatus, actor);
 
-    const nextPatient = input.patientId ? findPatient(input.patientId) : findPatient(appointment.patientId);
+    const nextPatient = input.patientId
+      ? await findPatient(input.patientId)
+      : await findPatient(appointment.patientId);
     const nextProvider = input.providerId ? findProvider(input.providerId) : findProvider(appointment.providerId);
     const nextDateTime = input.dateTime ?? appointment.dateTime;
     const nextDuration = input.duration ?? appointment.duration;
@@ -312,4 +325,3 @@ export const appointmentService = {
     return appointment;
   },
 };
-

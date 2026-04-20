@@ -57,10 +57,70 @@ model AuditLog {
 }
 
 model Patient {
-  id        String   @id @default(cuid())
-  mrn       String   @unique
-  firstName String
-  lastName  String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String       @id @default(cuid())
+  mrn         String       @unique
+  firstName   String
+  lastName    String
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  labResults  LabResult[]
+  medications Medication[]
+}
+
+enum LabResultStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+}
+
+model LabResult {
+  id          String          @id @default(cuid())
+  patientId   String
+  testName    String
+  testCode    String
+  result      String?
+  unit        String?
+  normalRange String?
+  isAbnormal  Boolean?
+  status      LabResultStatus @default(PENDING)
+  orderedBy   String
+  orderedAt   DateTime
+  resultedAt  DateTime?
+  notes       String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  patient     Patient         @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([patientId])
+  @@index([status])
+  @@index([testCode])
+  @@index([orderedAt])
+}
+
+enum MedicationStatus {
+  ACTIVE
+  DISCONTINUED
+}
+
+model Medication {
+  id                String           @id @default(cuid())
+  patientId         String
+  name              String
+  dosage            String
+  frequency         String
+  route             String
+  prescribedBy      String
+  startDate         DateTime
+  endDate           DateTime?
+  status            MedicationStatus @default(ACTIVE)
+  notes             String?
+  allergyWarnings   Json?
+  discontinueReason String?
+  discontinuedAt    DateTime?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  patient           Patient          @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([patientId])
+  @@index([status])
 }

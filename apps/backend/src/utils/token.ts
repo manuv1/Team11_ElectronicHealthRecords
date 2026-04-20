@@ -29,10 +29,32 @@ export interface SignedToken<TPayload extends object> {
   payload: TPayload & TokenSubject & { iat: number; exp: number };
 }
 
-const getSecretForTokenType = (type: TokenSubject["type"]): string =>
-  type === "refresh"
-    ? getEnv("JWT_REFRESH_SECRET", getEnv("JWT_SECRET", "medrecord-dev-refresh-secret"))
-    : getEnv("JWT_ACCESS_SECRET", getEnv("JWT_SECRET", "medrecord-dev-access-secret"));
+const defaultAccessSecret = "medrecord-dev-access-secret";
+const defaultRefreshSecret = "medrecord-dev-refresh-secret";
+
+const assertProductionSecret = (secret: string, key: string): void => {
+  if (process.env.NODE_ENV !== "production") {
+    return;
+  }
+
+  if (
+    secret === defaultAccessSecret ||
+    secret === defaultRefreshSecret ||
+    secret.length < 32
+  ) {
+    throw new Error(`${key} must be configured with at least 32 characters in production`);
+  }
+};
+
+const getSecretForTokenType = (type: TokenSubject["type"]): string => {
+  const secret =
+    type === "refresh"
+      ? getEnv("JWT_REFRESH_SECRET", getEnv("JWT_SECRET", defaultRefreshSecret))
+      : getEnv("JWT_ACCESS_SECRET", getEnv("JWT_SECRET", defaultAccessSecret));
+
+  assertProductionSecret(secret, type === "refresh" ? "JWT_REFRESH_SECRET" : "JWT_ACCESS_SECRET");
+  return secret;
+};
 
 const sign = (payload: TokenSubject & object): string => {
   const header = {
@@ -53,13 +75,37 @@ const sign = (payload: TokenSubject & object): string => {
 export const verifySignedToken = <TPayload extends TokenSubject>(
   token: string,
 ): (TPayload & { iat: number; exp: number }) | null => {
-  const [encodedHeader, encodedPayload, encodedSignature] = token.split(".");
+  const parts = token.split(".");
+
+  if (parts.length !== 3) {
+    return null;
+  }
+
+  const [encodedHeader, encodedPayload, encodedSignature] = parts;
 
   if (!encodedHeader || !encodedPayload || !encodedSignature) {
     return null;
   }
 
-  const unsafePayload = JSON.parse(fromBase64Url(encodedPayload).toString("utf8")) as TokenSubject;
+  let unsafeHeader: { alg?: string; typ?: string };
+  let unsafePayload: TokenSubject & { iat?: unknown; exp?: unknown };
+
+  try {
+    unsafeHeader = JSON.parse(fromBase64Url(encodedHeader).toString("utf8")) as {
+      alg?: string;
+      typ?: string;
+    };
+    unsafePayload = JSON.parse(fromBase64Url(encodedPayload).toString("utf8")) as TokenSubject & {
+      iat?: unknown;
+      exp?: unknown;
+    };
+  } catch {
+    return null;
+  }
+
+  if (unsafeHeader.alg !== "HS256" || unsafeHeader.typ !== "JWT") {
+    return null;
+  }
 
   if (unsafePayload.type !== "access" && unsafePayload.type !== "refresh") {
     return null;
@@ -80,6 +126,10 @@ export const verifySignedToken = <TPayload extends TokenSubject>(
   }
 
   const payload = unsafePayload as TPayload & { iat: number; exp: number };
+
+  if (typeof payload.iat !== "number" || typeof payload.exp !== "number") {
+    return null;
+  }
 
   if (Date.now() >= payload.exp * 1000) {
     return null;

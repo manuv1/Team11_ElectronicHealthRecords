@@ -400,11 +400,6 @@ export const App = (): JSX.Element => {
               </button>
             </form>
           )}
-
-          <div className="mt-8 rounded-[28px] border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-600">
-            Configure the backend host with <code>VITE_API_BASE_URL</code>. Default:
-            <code className="ml-1">http://localhost:4100/api/v1</code>
-          </div>
         </div>
       </section>
     </main>

@@ -80,6 +80,10 @@ const assertStaffUpdateScope = (input: UpdatePatientRequest, actor: RequestActor
 };
 
 export const patientService = {
+  async listAll(): Promise<Patient[]> {
+    return patients.filter((patient) => patient.isActive);
+  },
+
   async list(query: PatientListQuery): Promise<{ items: Patient[]; total: number }> {
     const normalizedSearch = query.search?.toLowerCase();
     const filteredItems = patients
@@ -168,4 +172,3 @@ export const patientService = {
     return patient;
   },
 };
-

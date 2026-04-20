@@ -15,6 +15,7 @@ import { AuthSession } from "../types/auth";
 
 interface PatientsWorkspaceProps {
   session: AuthSession;
+  onPatientsChanged?: (patientId?: string) => void;
 }
 
 type PatientFormState = Omit<CreatePatientRequest, "allergies"> & {
@@ -111,7 +112,7 @@ const validatePatientForm = (form: PatientFormState): string | null => {
   return null;
 };
 
-export const PatientsWorkspace = ({ session }: PatientsWorkspaceProps): JSX.Element => {
+export const PatientsWorkspace = ({ onPatientsChanged, session }: PatientsWorkspaceProps): JSX.Element => {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [filters, setFilters] = useState<PatientFilters>(initialFilters);
@@ -195,6 +196,7 @@ export const PatientsWorkspace = ({ session }: PatientsWorkspaceProps): JSX.Elem
       setSelectedPatient(patient);
       setEditForm(toPatientForm(patient));
       await loadPatients({ ...filters, page: 1 });
+      onPatientsChanged?.(patient.id);
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Could not create patient.");
     } finally {
@@ -229,6 +231,7 @@ export const PatientsWorkspace = ({ session }: PatientsWorkspaceProps): JSX.Elem
       setSelectedPatient(patient);
       setEditForm(toPatientForm(patient));
       await loadPatients(filters);
+      onPatientsChanged?.(patient.id);
     } catch (updateError) {
       setError(updateError instanceof Error ? updateError.message : "Could not update patient.");
     } finally {
@@ -249,6 +252,7 @@ export const PatientsWorkspace = ({ session }: PatientsWorkspaceProps): JSX.Elem
       setSuccess("Patient deactivated.");
       setSelectedPatient(null);
       await loadPatients(filters);
+      onPatientsChanged?.();
     } catch (deactivateError) {
       setError(deactivateError instanceof Error ? deactivateError.message : "Could not deactivate patient.");
     }

@@ -1,0 +1,38 @@
+import type { Medication } from "../types/medication.ts";
+
+export const mockMedications: Medication[] = [
+  {
+    id: "med_001",
+    patientId: "pat_001",
+    patientName: "Ava Sharma",
+    name: "Lisinopril",
+    dosage: "10 mg",
+    frequency: "Once daily",
+    route: "Oral",
+    prescribedBy: "usr_doctor_001",
+    prescribedByName: "Avery Cole",
+    startDate: "2026-04-15",
+    status: "ACTIVE",
+    notes: "Monitor blood pressure at follow-up.",
+    allergyWarnings: [],
+    createdAt: "2026-04-15T09:00:00.000Z",
+    updatedAt: "2026-04-15T09:00:00.000Z",
+  },
+  {
+    id: "med_002",
+    patientId: "pat_002",
+    patientName: "Noah Patel",
+    name: "Aspirin",
+    dosage: "81 mg",
+    frequency: "Once daily",
+    route: "Oral",
+    prescribedBy: "usr_doctor_001",
+    prescribedByName: "Avery Cole",
+    startDate: "2026-04-10",
+    status: "ACTIVE",
+    notes: "Review allergy warning before continuing therapy.",
+    allergyWarnings: ["Patient has recorded allergy: Aspirin"],
+    createdAt: "2026-04-10T10:30:00.000Z",
+    updatedAt: "2026-04-10T10:30:00.000Z",
+  },
+];

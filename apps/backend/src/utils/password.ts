@@ -21,7 +21,13 @@ export const hashPassword = async (password: string): Promise<string> => {
 export const verifyPassword = async (password: string, hashedPassword: string): Promise<boolean> => {
   const [salt, storedHash] = hashedPassword.split(HASH_SEPARATOR);
 
-  if (!salt || !storedHash) {
+  if (!salt || !storedHash || !/^[a-f0-9]+$/i.test(storedHash)) {
+    return false;
+  }
+
+  const storedHashBuffer = Buffer.from(storedHash, "hex");
+
+  if (storedHashBuffer.length !== 64) {
     return false;
   }
 
@@ -36,5 +42,5 @@ export const verifyPassword = async (password: string, hashedPassword: string): 
     });
   });
 
-  return crypto.timingSafeEqual(Buffer.from(storedHash, "hex"), derivedKey);
+  return crypto.timingSafeEqual(storedHashBuffer, derivedKey);
 };

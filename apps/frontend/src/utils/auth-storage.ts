@@ -2,6 +2,26 @@ import { AuthSession } from "../types/auth";
 
 const AUTH_STORAGE_KEY = "medrecord-auth-session";
 
+const isUsableSession = (value: unknown): value is AuthSession => {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const session = value as Partial<AuthSession>;
+
+  if (
+    typeof session.accessToken !== "string" ||
+    typeof session.refreshToken !== "string" ||
+    typeof session.accessTokenExpiresAt !== "string" ||
+    !session.user ||
+    typeof session.user !== "object"
+  ) {
+    return false;
+  }
+
+  return Date.now() < new Date(session.accessTokenExpiresAt).getTime();
+};
+
 export const readStoredSession = (): AuthSession | null => {
   if (typeof window === "undefined") {
     return null;
@@ -14,7 +34,14 @@ export const readStoredSession = (): AuthSession | null => {
   }
 
   try {
-    return JSON.parse(rawSession) as AuthSession;
+    const parsedSession = JSON.parse(rawSession) as unknown;
+
+    if (!isUsableSession(parsedSession)) {
+      window.localStorage.removeItem(AUTH_STORAGE_KEY);
+      return null;
+    }
+
+    return parsedSession;
   } catch {
     window.localStorage.removeItem(AUTH_STORAGE_KEY);
     return null;

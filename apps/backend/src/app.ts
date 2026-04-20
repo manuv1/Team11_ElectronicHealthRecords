@@ -1,24 +1,22 @@
 import express from "express";
 
+import {
+  applyCorsPolicy,
+  applySecurityHeaders,
+  createRateLimiter,
+  handleMalformedJson,
+} from "./middleware/security-middleware";
 import { registerRoutes } from "./routes";
 
 export const createApp = (): express.Express => {
   const app = express();
 
-  app.use((request, response, next) => {
-    response.header("Access-Control-Allow-Origin", request.header("Origin") ?? "*");
-    response.header("Vary", "Origin");
-    response.header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-User-Role");
-    response.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-
-    if (request.method === "OPTIONS") {
-      response.sendStatus(204);
-      return;
-    }
-
-    next();
-  });
-  app.use(express.json());
+  app.disable("x-powered-by");
+  app.use(applySecurityHeaders);
+  app.use(applyCorsPolicy);
+  app.use("/api/v1/auth", createRateLimiter({ windowMs: 15 * 60 * 1000, maxRequests: 50 }));
+  app.use(express.json({ limit: "100kb" }));
+  app.use(handleMalformedJson);
   registerRoutes(app);
 
   return app;

@@ -108,7 +108,7 @@ export const authService = {
       firstName: input.firstName,
       lastName: input.lastName,
       email: input.email,
-      role: input.role ?? "STAFF",
+      role: "STAFF",
       passwordHash,
     });
 
@@ -120,6 +120,7 @@ export const authService = {
       metadata: buildAuditMetadata(context, {
         role: user.role,
         email: user.email,
+        requestedRole: input.role,
       }),
     });
 

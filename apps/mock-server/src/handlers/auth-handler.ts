@@ -6,6 +6,7 @@ import { buildMockErrorResponse, buildMockSuccessResponse } from "../utils/respo
 import type { AuthPayload, UserRole } from "../../../../packages/shared/src/types/auth.ts";
 
 const allowedRoles: UserRole[] = ["ADMIN", "DOCTOR", "NURSE", "STAFF"];
+const accessTokens = new Map<string, { userId: string; role: UserRole; expiresAt: string }>();
 const refreshTokens = new Map<string, { userId: string; expiresAt: string }>();
 
 const buildPayload = (userId: string): AuthPayload | null => {
@@ -20,6 +21,11 @@ const buildPayload = (userId: string): AuthPayload | null => {
   const accessTokenExpiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
   const refreshTokenExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
 
+  accessTokens.set(accessToken, {
+    userId: user.id,
+    role: user.role,
+    expiresAt: accessTokenExpiresAt,
+  });
   refreshTokens.set(refreshToken, {
     userId: user.id,
     expiresAt: refreshTokenExpiresAt,
@@ -43,6 +49,26 @@ const buildPayload = (userId: string): AuthPayload | null => {
 };
 
 const isValidEmail = (email: string): boolean => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+
+export const getMockAccessTokenSession = (
+  token: string,
+): { userId: string; role: UserRole } | null => {
+  const session = accessTokens.get(token);
+
+  if (!session) {
+    return null;
+  }
+
+  if (Date.now() >= new Date(session.expiresAt).getTime()) {
+    accessTokens.delete(token);
+    return null;
+  }
+
+  return {
+    userId: session.userId,
+    role: session.role,
+  };
+};
 
 export const registerMockUser = async (request: Request, response: Response): Promise<void> => {
   const { firstName, lastName, email, password, role } = request.body as Record<string, string>;
@@ -80,7 +106,7 @@ export const registerMockUser = async (request: Request, response: Response): Pr
     firstName: firstName.trim(),
     lastName: lastName.trim(),
     email: normalizedEmail,
-    role: role?.trim() ? (role.trim().toUpperCase() as UserRole) : "STAFF",
+    role: "STAFF" as UserRole,
     password: password.trim(),
   };
 

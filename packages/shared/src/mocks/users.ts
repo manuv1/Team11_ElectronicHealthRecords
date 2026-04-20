@@ -1,4 +1,4 @@
-import { AuthenticatedUser, UserRole } from "../types/auth";
+import type { AuthenticatedUser, UserRole } from "../types/auth.ts";
 
 export interface MockAuthUserRecord extends AuthenticatedUser {
   password: string;
@@ -23,5 +23,6 @@ const buildUser = (
 export const mockAuthUsers: MockAuthUserRecord[] = [
   buildUser("usr_admin_001", "Morgan", "Reed", "admin@medrecord.test", "ADMIN", "Admin@12345"),
   buildUser("usr_doctor_001", "Avery", "Cole", "doctor@medrecord.test", "DOCTOR", "Doctor@12345"),
+  buildUser("usr_nurse_001", "Priya", "Menon", "nurse@medrecord.test", "NURSE", "Nurse@12345"),
   buildUser("usr_staff_001", "Jordan", "Kim", "staff@medrecord.test", "STAFF", "Staff@12345"),
 ];

@@ -9,7 +9,7 @@ import {
   isRegistrationRole,
 } from "../types/auth";
 
-const fallbackApiBaseUrl = "http://localhost:3001/api/v1";
+const fallbackApiBaseUrl = "http://localhost:4100/api/v1";
 
 const resolveApiBaseUrl = (): string => {
   const configuredBaseUrl =
@@ -32,7 +32,15 @@ const getErrorMessage = async (response: Response): Promise<string> => {
       return payload.error.message ?? `Request failed with status ${response.status}.`;
     }
 
-    return payload.message ?? payload.error ?? `Request failed with status ${response.status}.`;
+    if ("message" in payload && payload.message) {
+      return payload.message;
+    }
+
+    if ("error" in payload && typeof payload.error === "string") {
+      return payload.error;
+    }
+
+    return `Request failed with status ${response.status}.`;
   } catch {
     return `Request failed with status ${response.status}.`;
   }
@@ -70,7 +78,7 @@ const normalizeSession = (
 
   return {
     accessToken,
-    refreshToken: typeof refreshTokenValue === "string" ? refreshTokenValue : undefined,
+    refreshToken: typeof refreshTokenValue === "string" ? refreshTokenValue : "",
     accessTokenExpiresAt:
       typeof nestedTokens.accessTokenExpiresAt === "string"
         ? nestedTokens.accessTokenExpiresAt
@@ -83,17 +91,19 @@ const normalizeSession = (
   };
 };
 
-const unwrapPayload = (payload: Record<string, unknown>): Record<string, unknown> => {
-  if (payload.data && typeof payload.data === "object") {
-    return payload.data as Record<string, unknown>;
+const unwrapPayload = (payload: unknown): Record<string, unknown> => {
+  const record = payload && typeof payload === "object" ? (payload as Record<string, unknown>) : {};
+
+  if (record.data && typeof record.data === "object") {
+    return record.data as Record<string, unknown>;
   }
 
-  return payload;
+  return record;
 };
 
 const requestJson = async <TResponse>(
   path: string,
-  body: Record<string, unknown>,
+  body: unknown,
 ): Promise<TResponse> => {
   const response = await fetch(`${authBaseUrl}${path}`, {
     method: "POST",

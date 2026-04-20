@@ -6,12 +6,15 @@ These agent roles split ownership clearly across the EHR codebase.
 
 - Owns Express routes, controllers, services, middleware, and validation
 - Enforces API response contracts, RBAC, and audit logging hooks
+- Applies backend security constraints, including input validation, authorization checks, rate limiting, secure error handling, and sensitive data minimization
 - Implements MRN generation, appointment conflict checks, and medication authorization rules
 
 ## Frontend Experience Agent
 
 - Owns React pages, reusable components, hooks, and API integration
 - Maintains Tailwind-based UI consistency and React Query data flows
+- Ensures responsive layouts across mobile, tablet, and desktop breakpoints
+- Maintains accessibility standards, including semantic HTML, keyboard navigation, focus states, color contrast, and ARIA usage when needed
 - Builds patient, appointment, lab result, and medication workflows
 - Keeps frontend integration compatible with both the real backend and the mock server
 

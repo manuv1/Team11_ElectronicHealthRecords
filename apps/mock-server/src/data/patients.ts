@@ -1,3 +1,3 @@
-import { mockPatientSummaries } from "../../../../packages/shared/src/mocks/patients";
+import { mockPatientSummaries } from "../../../../packages/shared/src/mocks/patients.ts";
 
-export const mockPatients = mockPatientSummaries;
+export const mockPatients = [...mockPatientSummaries];

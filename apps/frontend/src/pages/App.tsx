@@ -1,8 +1,9 @@
 import { FormEvent, useState } from "react";
 
+import { AppointmentsWorkspace } from "../components/AppointmentsWorkspace";
 import { useAuth } from "../providers/AuthProvider";
 import { authService } from "../services/auth-service";
-import { LoginPayload, RegistrationPayload, registrationRoles, RegistrationRole } from "../types/auth";
+import { LoginPayload, RegistrationPayload, UserRole } from "../types/auth";
 
 type AuthMode = "login" | "register";
 
@@ -16,15 +17,41 @@ const initialRegistrationForm: RegistrationPayload = {
   lastName: "",
   email: "",
   password: "",
-  role: "STAFF",
 };
 
-const roleLabels: Record<RegistrationRole, string> = {
+const roleLabels: Record<UserRole, string> = {
   ADMIN: "Admin",
   DOCTOR: "Doctor",
   NURSE: "Nurse",
   STAFF: "Staff",
 };
+
+const testLoginAccounts: Array<LoginPayload & { role: UserRole; name: string }> = [
+  {
+    role: "ADMIN",
+    name: "Morgan Reed",
+    email: "admin@medrecord.test",
+    password: "Admin@12345",
+  },
+  {
+    role: "DOCTOR",
+    name: "Avery Cole",
+    email: "doctor@medrecord.test",
+    password: "Doctor@12345",
+  },
+  {
+    role: "NURSE",
+    name: "Priya Menon",
+    email: "nurse@medrecord.test",
+    password: "Nurse@12345",
+  },
+  {
+    role: "STAFF",
+    name: "Jordan Kim",
+    email: "staff@medrecord.test",
+    password: "Staff@12345",
+  },
+];
 
 const validateEmail = (email: string): boolean => /\S+@\S+\.\S+/.test(email);
 
@@ -134,74 +161,7 @@ export const App = (): JSX.Element => {
   };
 
   if (isAuthenticated && session) {
-    return (
-      <main className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(6,182,212,0.18),_transparent_32%),linear-gradient(180deg,#f8fafc_0%,#ecfeff_45%,#f8fafc_100%)] p-6 text-slate-900">
-        <section className="mx-auto max-w-5xl">
-          <div className="overflow-hidden rounded-[32px] border border-cyan-100 bg-white/90 shadow-[0_30px_80px_rgba(15,23,42,0.12)] backdrop-blur">
-            <div className="flex flex-col gap-8 border-b border-slate-200 px-8 py-8 md:flex-row md:items-center md:justify-between">
-              <div>
-                <p className="text-sm font-semibold uppercase tracking-[0.3em] text-cyan-700">
-                  MedRecord EHR
-                </p>
-                <h1 className="mt-3 text-3xl font-semibold text-slate-950">
-                  Welcome back, {session.user.firstName}.
-                </h1>
-                <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
-                  You are authenticated and ready to continue into patient registration,
-                  appointment scheduling, lab ordering, and medication workflows.
-                </p>
-              </div>
-              <button
-                className="rounded-full border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
-                onClick={logout}
-                type="button"
-              >
-                Sign out
-              </button>
-            </div>
-
-            <div className="grid gap-6 px-8 py-8 md:grid-cols-[1.4fr_0.9fr]">
-              <article className="rounded-[28px] bg-slate-950 p-6 text-white shadow-inner">
-                <p className="text-xs font-semibold uppercase tracking-[0.28em] text-cyan-300">
-                  Authenticated Session
-                </p>
-                <div className="mt-5 grid gap-4 sm:grid-cols-2">
-                  <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                    <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Name</p>
-                    <p className="mt-2 text-lg font-semibold">
-                      {session.user.firstName} {session.user.lastName}
-                    </p>
-                  </div>
-                  <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                    <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Role</p>
-                    <p className="mt-2 text-lg font-semibold">{roleLabels[session.user.role]}</p>
-                  </div>
-                  <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                    <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Email</p>
-                    <p className="mt-2 text-lg font-semibold">{session.user.email}</p>
-                  </div>
-                  <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                    <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Token status</p>
-                    <p className="mt-2 text-lg font-semibold text-emerald-300">Active</p>
-                  </div>
-                </div>
-              </article>
-
-              <aside className="rounded-[28px] border border-slate-200 bg-slate-50 p-6">
-                <p className="text-xs font-semibold uppercase tracking-[0.28em] text-slate-500">
-                  Next Frontend Steps
-                </p>
-                <ul className="mt-4 space-y-3 text-sm leading-6 text-slate-700">
-                  <li>Patient registration and MRN search can mount from this authenticated shell.</li>
-                  <li>Role-aware navigation can branch clinical and administrative workflows.</li>
-                  <li>The API base URL remains configurable through `VITE_API_BASE_URL`.</li>
-                </ul>
-              </aside>
-            </div>
-          </div>
-        </section>
-      </main>
-    );
+    return <AppointmentsWorkspace onLogout={logout} session={session} />;
   }
 
   return (
@@ -215,22 +175,58 @@ export const App = (): JSX.Element => {
             Secure clinical access for teams who need patient data to move fast.
           </h1>
           <p className="mt-6 max-w-xl text-base leading-7 text-slate-300">
-            Sign in to continue care delivery, or create a role-based account for admin,
-            doctor, nurse, and staff workflows defined in the EHR specification.
+            Sign in to continue care delivery, or create an account that an admin can
+            assign to the right clinical or operations role.
           </p>
 
-          <div className="mt-10 grid gap-4 sm:grid-cols-2">
-            <div className="rounded-[28px] border border-white/10 bg-white/5 p-5">
-              <p className="text-sm font-semibold text-cyan-200">Spec-aligned auth</p>
-              <p className="mt-2 text-sm leading-6 text-slate-300">
-                Targets `POST /auth/login` and `POST /auth/register` under the configured API base URL.
-              </p>
+          <div className="mt-8">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-300">
+                Test logins
+              </h2>
+              <span className="rounded-full bg-cyan-300 px-3 py-1 text-xs font-semibold text-slate-950">
+                Local QA
+              </span>
             </div>
-            <div className="rounded-[28px] border border-white/10 bg-white/5 p-5">
-              <p className="text-sm font-semibold text-cyan-200">Care-team roles</p>
-              <p className="mt-2 text-sm leading-6 text-slate-300">
-                Registration supports Admin, Doctor, Nurse, and Staff with clean validation states.
-              </p>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              {testLoginAccounts.map((account) => (
+                <div
+                  className="rounded-2xl border border-white/10 bg-white/5 p-4"
+                  key={account.role}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-white">{roleLabels[account.role]}</p>
+                      <p className="mt-1 text-xs text-slate-300">{account.name}</p>
+                    </div>
+                    <button
+                      className="rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-slate-950 transition hover:bg-cyan-100 focus:outline-none focus:ring-4 focus:ring-cyan-300/30"
+                      onClick={() => {
+                        setLoginForm({
+                          email: account.email,
+                          password: account.password,
+                        });
+                        setMode("login");
+                        setLoginError(null);
+                        setRegistrationError(null);
+                      }}
+                      type="button"
+                    >
+                      Use
+                    </button>
+                  </div>
+                  <dl className="mt-3 space-y-1 text-xs text-slate-300">
+                    <div>
+                      <dt className="sr-only">Email</dt>
+                      <dd className="break-all">{account.email}</dd>
+                    </div>
+                    <div>
+                      <dt className="sr-only">Password</dt>
+                      <dd>{account.password}</dd>
+                    </div>
+                  </dl>
+                </div>
+              ))}
             </div>
           </div>
         </div>
@@ -371,29 +367,6 @@ export const App = (): JSX.Element => {
               </div>
 
               <div>
-                <label className="text-sm font-medium text-slate-700" htmlFor="register-role">
-                  Role
-                </label>
-                <select
-                  className={inputClassName}
-                  id="register-role"
-                  onChange={(event) =>
-                    setRegistrationForm((current) => ({
-                      ...current,
-                      role: event.target.value as RegistrationRole,
-                    }))
-                  }
-                  value={registrationForm.role}
-                >
-                  {registrationRoles.map((role) => (
-                    <option key={role} value={role}>
-                      {roleLabels[role]}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
                 <label className="text-sm font-medium text-slate-700" htmlFor="register-password">
                   Password
                 </label>
@@ -430,7 +403,7 @@ export const App = (): JSX.Element => {
 
           <div className="mt-8 rounded-[28px] border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-600">
             Configure the backend host with <code>VITE_API_BASE_URL</code>. Default:
-            <code className="ml-1">http://localhost:3001/api/v1</code>
+            <code className="ml-1">http://localhost:4100/api/v1</code>
           </div>
         </div>
       </section>

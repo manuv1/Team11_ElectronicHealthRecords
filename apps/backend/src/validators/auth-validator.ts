@@ -1,4 +1,10 @@
-import { LoginRequest, RefreshTokenRequest, RegisterRequest, UserRole } from "../types/auth";
+import {
+  LoginRequest,
+  RefreshTokenRequest,
+  RegisterRequest,
+  RoleAssignmentRequest,
+  UserRole,
+} from "../types/auth";
 
 interface ValidationResult<T> {
   success: true;
@@ -56,7 +62,10 @@ export const validateRegisterRequest = (
   const lastName = readString(payload.lastName, "lastName", errors);
   const email = readString(payload.email, "email", errors).toLowerCase();
   const password = readString(payload.password, "password", errors, { minLength: 8 });
-  const role = readString(payload.role, "role", errors).toUpperCase() as UserRole;
+  const role =
+    typeof payload.role === "string" && payload.role.trim()
+      ? (payload.role.trim().toUpperCase() as UserRole)
+      : "STAFF";
 
   if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     errors.push("email must be a valid email address");
@@ -153,6 +162,39 @@ export const validateRefreshTokenRequest = (
     success: true,
     data: {
       refreshToken,
+    },
+  };
+};
+
+export const validateRoleAssignmentRequest = (
+  payload: unknown,
+): ValidationResult<RoleAssignmentRequest> | ValidationErrorResult => {
+  const errors: string[] = [];
+
+  if (!isRecord(payload)) {
+    return {
+      success: false,
+      errors: ["Request body must be a JSON object"],
+    };
+  }
+
+  const role = readString(payload.role, "role", errors).toUpperCase() as UserRole;
+
+  if (role && !allowedRoles.includes(role)) {
+    errors.push(`role must be one of ${allowedRoles.join(", ")}`);
+  }
+
+  if (errors.length > 0) {
+    return {
+      success: false,
+      errors,
+    };
+  }
+
+  return {
+    success: true,
+    data: {
+      role,
     },
   };
 };

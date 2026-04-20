@@ -256,4 +256,3 @@ A modern, HIPAA-compliant Electronic Health Record API system enabling healthcar
 
 ---
 
-*Built with ❤️ at Vibe Coding Hackathon 2026*

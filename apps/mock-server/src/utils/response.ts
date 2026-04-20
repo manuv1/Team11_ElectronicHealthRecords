@@ -1,7 +1,7 @@
-import {
+import type {
   ApiErrorResponse,
   ApiSuccessResponse,
-} from "../../../../packages/shared/src/types/api-response";
+} from "../../../../packages/shared/src/types/api-response.ts";
 
 export const buildMockSuccessResponse = <T>(
   data: T,

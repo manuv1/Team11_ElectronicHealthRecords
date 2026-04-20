@@ -1,6 +1,6 @@
 import crypto from "crypto";
 
-import { AuthPayload, LoginRequest, RegisterRequest } from "../types/auth";
+import { AuthPayload, AuthenticatedUser, LoginRequest, RegisterRequest, UserRole } from "../types/auth";
 import { createSignedToken, verifySignedToken } from "../utils/token";
 import { authStore } from "./auth-store";
 import { recordAuditEntry } from "./audit-service";
@@ -83,6 +83,10 @@ const buildAuthPayload = async (userId: string): Promise<AuthPayload> => {
 };
 
 export const authService = {
+  async listUsers(): Promise<AuthenticatedUser[]> {
+    return authStore.listUsers();
+  },
+
   async register(input: RegisterRequest, context: AuthRequestContext = {}): Promise<AuthPayload> {
     const existingUser = await authStore.findUserByEmail(input.email);
 
@@ -104,7 +108,7 @@ export const authService = {
       firstName: input.firstName,
       lastName: input.lastName,
       email: input.email,
-      role: input.role,
+      role: input.role ?? "STAFF",
       passwordHash,
     });
 
@@ -120,6 +124,43 @@ export const authService = {
     });
 
     return buildAuthPayload(user.id);
+  },
+
+  async assignUserRole(
+    userId: string,
+    role: UserRole,
+    context: AuthRequestContext & { actorUserId?: string } = {},
+  ): Promise<AuthenticatedUser> {
+    const updatedUser = await authStore.updateUserRole(userId, role);
+
+    if (!updatedUser) {
+      await recordAuditEntry({
+        userId: context.actorUserId,
+        action: "auth.assign-role",
+        resource: "user",
+        outcome: "failure",
+        metadata: buildAuditMetadata(context, {
+          targetUserId: userId,
+          role,
+          reason: "user-not-found",
+        }),
+      });
+      throw new AuthServiceError(404, "AUTH_USER_NOT_FOUND", "User could not be found");
+    }
+
+    await recordAuditEntry({
+      userId: context.actorUserId,
+      action: "auth.assign-role",
+      resource: "user",
+      outcome: "success",
+      metadata: buildAuditMetadata(context, {
+        targetUserId: updatedUser.id,
+        targetEmail: updatedUser.email,
+        role: updatedUser.role,
+      }),
+    });
+
+    return updatedUser;
   },
 
   async login(input: LoginRequest, context: AuthRequestContext = {}): Promise<AuthPayload> {

@@ -76,7 +76,7 @@ export const authStore = {
     firstName: string;
     lastName: string;
     email: string;
-    role: UserRole;
+    role?: UserRole;
     passwordHash: string;
   }): Promise<UserRecord> {
     await ensureSeededUsers();
@@ -85,7 +85,7 @@ export const authStore = {
       firstName: input.firstName,
       lastName: input.lastName,
       email: input.email.toLowerCase(),
-      role: input.role,
+      role: input.role ?? "STAFF",
       passwordHash: input.passwordHash,
       isActive: true,
       createdAt: new Date().toISOString(),
@@ -95,6 +95,25 @@ export const authStore = {
     usersByEmail.set(record.email, record);
 
     return record;
+  },
+
+  async updateUserRole(userId: string, role: UserRole): Promise<AuthenticatedUser | null> {
+    await ensureSeededUsers();
+    const user = userRecords.get(userId);
+
+    if (!user) {
+      return null;
+    }
+
+    const updatedUser: UserRecord = {
+      ...user,
+      role,
+    };
+
+    userRecords.set(userId, updatedUser);
+    usersByEmail.set(updatedUser.email, updatedUser);
+
+    return toUser(updatedUser);
   },
 
   async touchUserLogin(userId: string): Promise<void> {

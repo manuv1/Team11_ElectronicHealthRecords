@@ -1,9 +1,9 @@
 import crypto from "crypto";
-import { Request, Response } from "express";
+import type { Request, Response } from "express";
 
 import { mockUsers } from "../data/auth-users";
 import { buildMockErrorResponse, buildMockSuccessResponse } from "../utils/response";
-import { AuthPayload, UserRole } from "../../../../packages/shared/src/types/auth";
+import type { AuthPayload, UserRole } from "../../../../packages/shared/src/types/auth.ts";
 
 const allowedRoles: UserRole[] = ["ADMIN", "DOCTOR", "NURSE", "STAFF"];
 const refreshTokens = new Map<string, { userId: string; expiresAt: string }>();
@@ -54,7 +54,6 @@ export const registerMockUser = async (request: Request, response: Response): Pr
   if (email && !isValidEmail(email.trim().toLowerCase())) errors.push("email must be valid");
   if (!password?.trim()) errors.push("password is required");
   if (password && password.trim().length < 8) errors.push("password must be at least 8 characters");
-  if (!role?.trim()) errors.push("role is required");
   if (role && !allowedRoles.includes(role.trim().toUpperCase() as UserRole)) {
     errors.push(`role must be one of ${allowedRoles.join(", ")}`);
   }
@@ -81,7 +80,7 @@ export const registerMockUser = async (request: Request, response: Response): Pr
     firstName: firstName.trim(),
     lastName: lastName.trim(),
     email: normalizedEmail,
-    role: role.trim().toUpperCase() as UserRole,
+    role: role?.trim() ? (role.trim().toUpperCase() as UserRole) : "STAFF",
     password: password.trim(),
   };
 
@@ -89,6 +88,49 @@ export const registerMockUser = async (request: Request, response: Response): Pr
   const payload = buildPayload(user.id);
 
   response.status(201).json(buildMockSuccessResponse(payload, "User registered successfully"));
+};
+
+export const listMockUsers = async (_request: Request, response: Response): Promise<void> => {
+  response.status(200).json(
+    buildMockSuccessResponse(
+      {
+        users: mockUsers.map(({ password: _password, ...user }) => user),
+      },
+      "Users loaded successfully",
+    ),
+  );
+};
+
+export const assignMockUserRole = async (request: Request, response: Response): Promise<void> => {
+  const { role } = request.body as Record<string, string>;
+  const normalizedRole = role?.trim().toUpperCase() as UserRole;
+
+  if (!role?.trim() || !allowedRoles.includes(normalizedRole)) {
+    response
+      .status(400)
+      .json(
+        buildMockErrorResponse("AUTH_VALIDATION_ERROR", "Role assignment data is invalid", [
+          `role must be one of ${allowedRoles.join(", ")}`,
+        ]),
+      );
+    return;
+  }
+
+  const userIndex = mockUsers.findIndex((entry) => entry.id === request.params.userId);
+
+  if (userIndex < 0) {
+    response.status(404).json(buildMockErrorResponse("AUTH_USER_NOT_FOUND", "User could not be found"));
+    return;
+  }
+
+  mockUsers[userIndex] = {
+    ...mockUsers[userIndex],
+    role: normalizedRole,
+  };
+
+  const { password: _password, ...user } = mockUsers[userIndex];
+
+  response.status(200).json(buildMockSuccessResponse({ user }, "User role updated successfully"));
 };
 
 export const loginMockUser = async (request: Request, response: Response): Promise<void> => {

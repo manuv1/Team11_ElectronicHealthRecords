@@ -5,7 +5,7 @@ export interface RegisterRequest {
   lastName: string;
   email: string;
   password: string;
-  role: UserRole;
+  role?: UserRole;
 }
 
 export interface LoginRequest {
@@ -35,5 +35,9 @@ export interface AuthTokens {
 export interface AuthPayload {
   user: AuthenticatedUser;
   tokens: AuthTokens;
+}
+
+export interface RoleAssignmentRequest {
+  role: UserRole;
 }
 
